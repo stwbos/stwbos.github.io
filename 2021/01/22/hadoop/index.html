@@ -164,6 +164,10 @@
 
     
     
+        <span class="article-wordcount article-meta-item">
+            <i class="fas fa-file-word"></i> <span>1.4k 字</span>
+        </span>
+    
     
     
         <span class="article-pv article-meta-item">
@@ -178,7 +182,35 @@
         
 
         <div class="article-content markdown-body">
-            
+            <p>Hadoop 集群的安装配置大致为如下流程:<br>1．设置虚拟机的桥接模式（保证两台虚拟机互相能访问）<br>2．选定一台机器作为 master<br>3．在 master 节点上配置 hadoop 用户、安装 SSH server、安装 Java 环境<br>4．在 master 节点上安装 Hadoop，并完成配置<br>5．将 master 节点上的 /usr/local/hadoop 目录复制到其他 Slave 节点上、<br>6．在其他 Slave 节点上配置 hadoop 用户、安装 SSH server、安装 Java 环境<br>7．<br>8．在 master 节点上开启 Hadoop</p>
+<p>设置虚拟机网络桥接模式，具体步骤参考如下：<br>1.1：虚拟机 – 设置</p>
+<pre><code>    1.2： 网络适配器 – 网络连接 – 选择“桥接模式(B)”
+
+  1.3:   设置成功后，重新查看虚拟机的ip，然后在finalshell里面重新填写新的主机ip，再进行连接</code></pre>
+<ol start="2">
+<li><p>选定一台机器作为 master<br>为了便于后面主机之间通信，特修改hostname<br>步骤1：主机：vim /etc/hostname，编辑写入：master</p>
+<p>  奴隶机器：vim /etc/hostname，编辑写入：slave1</p>
+</li>
+</ol>
+<p> 步骤2：增加ip与机器名映射<br>        主机：vim /etc/hosts,追加以下内容：<br>172.20.27.236 master<br>172.20.24.225 slave1<br>其中172.20.27.236 是主机的ip<br>     172.20.24.225是奴隶机的ip</p>
+<p>主机：执行以下指令（将master上的/etc/hosts文件原封不动的复制到奴隶机上去）(报错的话：cd ~/.ssh/    rm  known_hosts)<br>scp /etc/hosts slave1:/etc/</p>
+<p>3．在 master 节点上配置 hadoop 用户、安装 SSH server、安装 Java 环境<br>（1）安装 Java 环境<br>复制jdk安装包进虚拟机目录<br>解压jdk：tar -zxvf jdk-8u261-linux-x64.tar.gz<br>编辑环境变量：<br>vi /etc/profile<br>添加以下内容<br>export JAVA_HOME=/home/jdk1.8.0_261<br>export PATH=$JAVA_HOME/bin:$PATH<br>export CLASSPATH=.:$JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar<br>配置文件生效：<br>source /etc/profile<br>查看Java版本<br>输入java -version<br>（2）安装hadoop环境<br>复制hadoop安装包进虚拟机目录<br>解压hadoop安装包<br>tar -zxvf hadoop-2.4.1.tar.gz</p>
+<p>编辑环境变量：<br>vi /etc/profile</p>
+<p>添加以下内容：（注意编辑/etc/profile时结尾不能加/）<br>export HADOOP_HOME=/home/hadoop-2.4.1<br>export PATH=.:$HADOOP_HOME/bin:$JAVA_HOME/bin:$PATH</p>
+<p>配置文件生效：<br>source /etc/profile<br>输入hadoop version检查hadoop版本</p>
+<p>（3）配置奴隶机路径<br>因为主机配置好文件后会把home目录下的hadoop、java都复制到奴隶机，所以奴隶机的工作就是就修改一下路径就好了，返回一二步编辑环境变量并使配置文件生效。<br>4．    在 master 节点上安装 Hadoop，并完成配置<br>配置集群/分布式环境<br>集群/分布式模式需要修改/home/hadoop-2.4.1/etc/hadoop/<br> 中的5个配置文件，更多设置项可点击查看官方说明，这里仅设置了正常启动所必须的设置项： slaves、core-site.xml、hdfs-site.xml、mapred-site.xml、yarn-site.xml 。<br>1、修改slaves文件，增加一行slave1，将之前的localhost注释掉</p>
+<p>2、文件 core-site.xml 改为下面的配置：<br><configuration><br>        <property><br>                <name>fs.defaultFS</name><br>                <value>hdfs://master:9000</value><br>        </property><br>        <property><br>                <name>hadoop.tmp.dir</name><br>                <value>file:/usr/local/hadoop/tmp</value><br>                <description>Abase for other temporary directories.</description><br>        </property><br></configuration><br>3、文件 hdfs-site.xml，dfs.replication 一般设为 3，但我们只有一个 Slave 节点，所以 dfs.replication 的值还是设为 1<br><configuration><br>        <property><br>                <name>dfs.namenode.secondary.http-address</name><br>                <value>master:50090</value><br>        </property><br>        <property><br>                <name>dfs.replication</name><br>                <value>1</value><br>        </property><br>        <property><br>                <name>dfs.namenode.name.dir</name><br>                <value>file:/usr/local/hadoop/tmp/dfs/name</value><br>        </property><br>        <property><br>                <name>dfs.datanode.data.dir</name><br>                <value>file:/usr/local/hadoop/tmp/dfs/data</value><br>        </property><br></configuration><br>4、重命名mapred-site.xml.template为mapred-site.xml（cp mapred-site.xml.template mapred-site.xml），然后配置修改如下：<br><configuration><br>        <property><br>                <name>mapreduce.framework.name</name><br>                <value>yarn</value><br>        </property><br>        <property><br>                <name>mapreduce.jobhistory.address</name><br>                <value>master:10020</value><br>        </property><br>        <property><br>                <name>mapreduce.jobhistory.webapp.address</name><br>                <value>master:19888</value><br>        </property><br></configuration><br>5、文件 yarn-site.xml：<br><configuration><br>        <property><br>                <name>yarn.resourcemanager.hostname</name><br>                <value>master</value><br>        </property><br>        <property><br>                <name>yarn.nodemanager.aux-services</name><br>                <value>mapreduce_shuffle</value><br>        </property><br></configuration><br>6:修改hadoop目录下/etc/hadoop/ yarn-env.sh,添加jdk路径<br>export JAVA_HOME=/home/jdk1.8.0_261</p>
+<p>上述配置好后，将 Master 上的 /home/hadoop-2.4.1/ 文件夹复制到各个节点上。如果之前有跑过伪分布式模式，建议在切换到集群模式前先删除之前的临时文件。在 Master 节点上执行：<br>cd /home<br>sudo rm -r ./hadoop/tmp     # 删除 hadoop 临时文件<br>sudo rm -r ./hadoop/logs/*   # 删除日志文件<br>tar -zcf ~/hadoop-lbw.tar.gz ./hadoop-2.4.1   # 先压缩再复制<br>cd ~<br>scp ./hadoop-lbw.tar.gz slave1:/home<br>主要是执行以下两条<br>压缩<br>tar -cvf hadoop-lbw.tar.gz hadoop-2.4.1<br>转移到节点<br>scp ./ hadoop-lbw.tar.gz slave1:/home</p>
+<p>主机删除之后，记得去目录：/home/hadoop-2.4.1/bin<br>执行以下指令：<br>hadoop namenode -format<br>在 Slave1 节点上执行<br>sudo rm -r  /home/hadoop-2.4.1    # 删掉旧的（如果存在）<br>sudo tar -zxf  /home/hadoop-lbw.tar.gz -C /home<br>sudo chown -R root /home/ hadoop-2.4.1<br>sudo chown -R bigdata /home/hadoop-2.4.1</p>
+<p>同样，如果有其他 Slave 节点，也要执行将 hadoop-lbw.tar.gz 传输到 Slave 节点、在 Slave 节点解压文件的操作。<br>奴隶机复制之后，记得去目录：/home/hadoop-2.4.1/bin<br>执行以下指令：<br>hadoop namenode -format</p>
+<p>首次启动需要先在 Master 节点执行 NameNode 的格式化：<br>hdfs namenode -format</p>
+<p>接下来，还需要CentOS系统需要关闭防火墙<br>systemctl stop firewalld.service    # 关闭firewall<br>systemctl disable firewalld.service # 禁止firewall开机启动</p>
+<p>接着可以启动 hadoop 了，启动需要在 Master 节点上进行：</p>
+<p>通过命令 jps 可以查看各个节点所启动的进程。正确的话，在 Master 节点上可以看到 NameNode、ResourceManager、SecondrryNameNode、JobHistoryServer 进程，如下图所示：</p>
+<p>在 Slave 节点可以看到 DataNode 和 NodeManager 进程，如下图所示：</p>
+<p>缺少任一进程都表示出错。另外还需要在 Master 节点上通过命令 hdfs dfsadmin -report 查看 DataNode 是否正常启动，如果 Live datanodes 不为 0 ，则说明集群启动成功。例如我这边一共有 1 个 Datanodes：</p>
+<p>也可以通过 Web 页面看到查看 DataNode 和 NameNode 的状态：<a class="link"   target="_blank" rel="noopener" href="http://master:50070/%E3%80%82%E5%A6%82%E6%9E%9C%E4%B8%8D%E6%88%90%E5%8A%9F%EF%BC%8C%E5%8F%AF%E4%BB%A5%E9%80%9A%E8%BF%87%E5%90%AF%E5%8A%A8%E6%97%A5%E5%BF%97%E6%8E%92%E6%9F%A5%E5%8E%9F%E5%9B%A0%E3%80%82" >http://master:50070/。如果不成功，可以通过启动日志排查原因。<i class="fas fa-external-link-alt"></i></a></p>
+
         </div>
 
         
